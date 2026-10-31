@@ -1,0 +1,71 @@
+#!/bin/sh
+# Patches Rex so it loads the Changes panel.
+#
+#   patch.sh            patch /Applications/Rex Beta.app (the official build is backed up first)
+#   patch.sh --test     put a patched copy in <prefix>/test and leave /Applications alone
+#   patch.sh --check    report whether the installed app is patched (exit 0 yes, 3 no)
+#
+# Adds a weak LC_LOAD_WEAK_DYLIB for the panel dylib and re-signs the main
+# bundle ad hoc with the original entitlements plus disable-library-validation.
+# The Rex server helper and Sparkle keep their own signatures. Run it again
+# after every Rex update (update.sh does).
+set -eu
+HERE="$(cd "$(dirname "$0")" && pwd)"
+PREFIX="$HOME/Library/Application Support/rexmod"
+APP="${REX_APP:-/Applications/Rex Beta.app}"
+BIN_REL="Contents/MacOS/Rex"
+DYLIB="$PREFIX/RexModPanel.dylib"
+TEAM="AG92C3PT77"
+MODE="${1:-install}"
+
+INSERT="$PREFIX/bin/insertdylib"
+[ -x "$INSERT" ] || INSERT="$HERE/../dist/insertdylib"
+[ -x "$INSERT" ] || { echo "insertdylib not found; run install.sh first" >&2; exit 1; }
+[ -f "$DYLIB" ] || { echo "panel dylib not found at $DYLIB; run install.sh first" >&2; exit 1; }
+[ -d "$APP" ] || { echo "Rex not found at $APP" >&2; exit 1; }
+
+if [ "$MODE" = "--check" ]; then
+  exec "$INSERT" --check "$APP/$BIN_REL" "$DYLIB"
+fi
+if "$INSERT" --check "$APP/$BIN_REL" "$DYLIB" >/dev/null 2>&1 && [ "$MODE" != "--test" ]; then
+  echo "Rex is already patched"
+  exit 0
+fi
+
+VERSION=$(defaults read "$APP/Contents/Info.plist" CFBundleVersion 2>/dev/null || echo unknown)
+if codesign -dv "$APP" 2>&1 | grep -q "TeamIdentifier=$TEAM"; then
+  rm -rf "$PREFIX/backup"
+  mkdir -p "$PREFIX/backup"
+  ditto "$APP" "$PREFIX/backup/Rex Beta.app"
+  echo "$VERSION" > "$PREFIX/backup/VERSION"
+  echo "backed up the official Rex $VERSION"
+fi
+
+STAGE="$(mktemp -d)"
+trap 'rm -rf "$STAGE"' EXIT
+S="$STAGE/Rex Beta.app"
+ditto "$APP" "$S"
+"$INSERT" "$S/$BIN_REL" "$DYLIB"
+
+ENT="$STAGE/entitlements.plist"
+codesign -d --entitlements - --xml "$APP" > "$ENT" 2>/dev/null || true
+[ -s "$ENT" ] || printf '<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0"><dict/></plist>\n' > "$ENT"
+/usr/libexec/PlistBuddy -c "Delete :com.apple.security.cs.disable-library-validation" "$ENT" >/dev/null 2>&1 || true
+/usr/libexec/PlistBuddy -c "Add :com.apple.security.cs.disable-library-validation bool true" "$ENT"
+codesign -f -s - --options runtime --entitlements "$ENT" "$S" 2>/dev/null
+codesign --verify --strict "$S"
+
+if [ "$MODE" = "--test" ]; then
+  rm -rf "$PREFIX/test"
+  mkdir -p "$PREFIX/test"
+  mv "$S" "$PREFIX/test/Rex Beta.app"
+  echo "test copy: $PREFIX/test/Rex Beta.app"
+  exit 0
+fi
+
+# Keep the replaced bundle until the next run: a running Rex still uses it.
+rm -rf "$PREFIX/replaced"
+mkdir -p "$PREFIX/replaced"
+mv "$APP" "$PREFIX/replaced/"
+mv "$S" "$APP"
+echo "patched Rex $VERSION"

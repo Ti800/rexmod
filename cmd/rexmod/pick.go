@@ -1,0 +1,161 @@
+package main
+
+import (
+	"bufio"
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+)
+
+func selfPath() string {
+	p, err := os.Executable()
+	if err != nil {
+		return "rexmod"
+	}
+	if r, err := filepath.EvalSymlinks(p); err == nil {
+		return r
+	}
+	return p
+}
+
+// pickOuter opens a floating Rex layer that runs the picker.
+func pickOuter(session, window string) error {
+	t, err := resolveTarget(session, window)
+	if err != nil {
+		return err
+	}
+	if t.Repo == "" {
+		return fmt.Errorf("the agent pane of this window is not in a git repository")
+	}
+	req := map[string]any{
+		"session_id": t.SessionID,
+		"window_id":  t.WindowID,
+		"bounds":     []float64{0.15, 0.1, 0.7, 0.75},
+		"focus":      true,
+		"layout": map[string]any{
+			"block": map[string]any{
+				"flavor": "com.superlogical.terminal.shell",
+				"label":  "files",
+				"options": map[string]any{
+					"shell":   "none",
+					"cwd":     t.Repo,
+					"command": []string{selfPath(), "pick", "--inner", "--session", t.SessionID, "--window", t.WindowID, "--repo", t.Repo},
+				},
+			},
+		},
+	}
+	b, _ := json.Marshal(req)
+	cmd := exec.Command(rexBin(), "api", "call", "-s", t.SessionID, "session.new_layer", "-")
+	cmd.Stdin = bytes.NewReader(b)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("new_layer: %v: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
+func fzfBin() string {
+	if p, err := exec.LookPath("fzf"); err == nil {
+		return p
+	}
+	return "/opt/homebrew/bin/fzf"
+}
+
+// pickInner runs fzf over the repo's files and opens the choice in the editor.
+func pickInner(session, window, repo string) error {
+	self := selfPath()
+	files, err := listFiles(repo, false)
+	if err != nil {
+		return err
+	}
+	q := func(s string) string { return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'" }
+	reloadAll := fmt.Sprintf("%s files --repo %s", q(self), q(repo))
+	reloadChanged := reloadAll + " --changed"
+	args := []string{
+		"--layout=reverse", "--info=inline-right", "--prompt=files ❯ ", "--pointer=▌", "--marker=┃",
+		"--header=enter open · ctrl-g changed on branch · ctrl-f all files · esc close",
+		"--preview", q(self) + " preview {}",
+		"--preview-window=right,55%,border-left",
+		"--color=bg+:#161616,fg+:#ffffff,hl:#00e5ff,hl+:#00e5ff,pointer:#bb00ff,marker:#bb00ff,prompt:#bb00ff,info:#555555,header:#555555,border:#2a2a2a,spinner:#bb00ff",
+		"--bind", "ctrl-g:reload(" + reloadChanged + ")+change-prompt(changed ❯ )",
+		"--bind", "ctrl-f:reload(" + reloadAll + ")+change-prompt(files ❯ )",
+		"--scheme=path",
+	}
+	cmd := exec.Command(fzfBin(), args...)
+	cmd.Dir = repo
+	cmd.Stdin = strings.NewReader(strings.Join(files, "\n") + "\n")
+	cmd.Stderr = os.Stderr
+	out, err := cmd.Output()
+	if err != nil {
+		return nil // esc or ctrl-c: nothing chosen
+	}
+	choice := strings.TrimSpace(string(out))
+	if choice == "" {
+		return nil
+	}
+	return openInEditor(session, window, filepath.Join(repo, choice), 0)
+}
+
+// previewScript is nvim/preview.lua next to the rexmod checkout.
+func previewScript() string {
+	// <prefix>/bin/rexmod next to <prefix>/nvim, in an install or a checkout
+	// (build/rexmod next to nvim/).
+	cands := []string{filepath.Join(filepath.Dir(selfPath()), "..", "nvim", "preview.lua")}
+	if home, err := os.UserHomeDir(); err == nil {
+		cands = append(cands, filepath.Join(home, "Library", "Application Support", "rexmod", "nvim", "preview.lua"))
+	}
+	for _, c := range cands {
+		if _, err := os.Stat(c); err == nil {
+			return c
+		}
+	}
+	return ""
+}
+
+// preview prints a file for the fzf preview pane, highlighted the way the
+// editor highlights it (treesitter or Vim syntax with the rex colorscheme).
+func preview(path string, focus int) error {
+	if script := previewScript(); script != "" {
+		cmd := exec.Command(nvimBin(), "--headless", "-u", "NONE", "-i", "NONE", "-l", script, path, fmt.Sprint(focus), "400")
+		cmd.Env = append(os.Environ(), "NVIM_LOG_FILE=/dev/null")
+		for k, v := range nvimEnv() {
+			cmd.Env = append(cmd.Env, k+"="+v)
+		}
+		if out, err := cmd.Output(); err == nil && len(out) > 0 {
+			_, err = os.Stdout.Write(out)
+			return err
+		}
+	}
+	return plainPreview(path, focus)
+}
+
+func plainPreview(path string, focus int) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	head := make([]byte, 8000)
+	n, _ := f.Read(head)
+	if bytes.IndexByte(head[:n], 0) >= 0 {
+		fmt.Println("(binary file)")
+		return nil
+	}
+	_, _ = f.Seek(0, 0)
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 1<<20), 1<<20)
+	w := bufio.NewWriter(os.Stdout)
+	defer w.Flush()
+	for i := 1; sc.Scan() && i <= 500; i++ {
+		mark := "\x1b[38;5;240m"
+		if i == focus {
+			mark = "\x1b[38;2;187;0;255m"
+		}
+		fmt.Fprintf(w, "%s%5d\x1b[0m  %s\n", mark, i, sc.Text())
+	}
+	return nil
+}

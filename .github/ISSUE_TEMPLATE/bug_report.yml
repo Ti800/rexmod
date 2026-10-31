@@ -1,0 +1,31 @@
+name: Bug report
+description: Something in the panel, the editor pane, comments or the picker doesn't work
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you saw instead. Screenshots help a lot for the panel.
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: "Output of: defaults read '/Applications/Rex Beta.app/Contents/Info.plist' CFBundleVersion; sw_vers -productVersion; nvim --version | head -1"
+    validations:
+      required: true
+  - type: dropdown
+    id: agent
+    attributes:
+      label: Agent
+      options: [Claude Code, Codex, OpenCode, Pi, Not agent related]
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Panel log
+      description: The end of ~/Library/Logs/rexmod-panel.log, if it's about the panel.
+      render: text

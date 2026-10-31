@@ -1,0 +1,33 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Test
+        run: make test
+      - name: Package
+        id: pack
+        run: echo "file=$(scripts/package-release.sh "$GITHUB_REF_NAME")" >> "$GITHUB_OUTPUT"
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notes=$(awk -v v="${GITHUB_REF_NAME#v}" '$0 ~ "^## \\[?"v {f=1; next} /^## / {f=0} f' CHANGELOG.md)
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "${{ steps.pack.outputs.file }}" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "${{ steps.pack.outputs.file }}" \
+              --title "rexmod $GITHUB_REF_NAME" --notes "${notes:-See CHANGELOG.md}"
+          fi

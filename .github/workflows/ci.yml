@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Go, Swift and scripts
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Go vet and test
+        run: make test
+      - name: Lint
+        run: |
+          brew install shellcheck
+          make lint
+          test -z "$(gofmt -l cmd)"
+      - name: Build the prebuilt files (rexmod, insertdylib, panel)
+        run: make dist
+      - uses: actions/upload-artifact@v5
+        with:
+          name: dist
+          path: dist/
