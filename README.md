@@ -13,10 +13,9 @@
   [Features](#features) • [Install](#install) • [Usage](#usage) • [How it works](#how-it-works) • [FAQ](#faq)
 </div>
 
-<p align="center">
-  <a href="assets/demo.mp4"><img src="assets/demo.gif" width="100%" alt="rexmod in one minute: Claude changes a file, Last Turn lists it, a click opens it in Neovim, a review comment goes back to Claude, ⌘P finds a file, and the Branch and Files tabs"></a>
-  <br><sub>One minute, sped up where Claude thinks. <a href="assets/demo.mp4">Watch the full-quality video</a>.</sub>
-</p>
+https://github.com/user-attachments/assets/1884e444-a837-4f86-9b9b-95171cc03947
+
+<p align="center"><sub>One minute, sped up where Claude thinks. No player? <a href="assets/demo.mp4">Download the video</a>.</sub></p>
 
 Your agent edits files in one pane. rexmod shows you what it changed, opens it in a real editor next
 to the agent, and sends your review back as comments, all inside the Rex window.
