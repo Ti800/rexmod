@@ -66,7 +66,7 @@ and opened once, and [Homebrew](https://brew.sh) (for Neovim, fzf and Node, if y
 With Homebrew:
 
 ```sh
-brew install alpcanaydin/tap/rexmod
+brew install alpcanaydin/rexmod/rexmod
 rexmod-setup
 ```
 

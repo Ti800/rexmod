@@ -12,7 +12,7 @@ All notable changes to rexmod. The format follows [Keep a Changelog](https://kee
 
 ### Added
 
-- Homebrew: `brew install alpcanaydin/tap/rexmod`, then `rexmod-setup`.
+- Homebrew: `brew install alpcanaydin/rexmod/rexmod`, then `rexmod-setup`.
 
 ### Fixed
 
