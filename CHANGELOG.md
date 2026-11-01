@@ -2,6 +2,16 @@
 
 All notable changes to rexmod. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.1] - 2026-11-01
+
+### Fixed
+
+- Only one patch runs at a time. After Rex updates itself, a re-patch agent and an install (or two agents) could swap the app bundle at once.
+
+### Changed
+
+- The README plays the demo video in place.
+
 ## [0.1.0] - 2026-11-01
 
 First release.
