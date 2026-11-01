@@ -227,6 +227,15 @@ local function draft_box(win, last_line, title, on_save, initial)
   local buf = vim.api.nvim_create_buf(false, true)
   vim.bo[buf].bufhidden = "wipe"
   vim.bo[buf].filetype = "markdown"
+  -- A note is prose: no code completion popping up while you type it
+  -- (blink.cmp honours vim.b.completion; nvim-cmp takes a buffer setup).
+  vim.b[buf].completion = false
+  vim.api.nvim_buf_call(buf, function()
+    local ok, cmp = pcall(require, "cmp")
+    if ok and cmp.setup and cmp.setup.buffer then
+      pcall(cmp.setup.buffer, { enabled = false })
+    end
+  end)
   local float = vim.api.nvim_open_win(buf, true, {
     relative = "win",
     win = win,

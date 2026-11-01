@@ -2,6 +2,12 @@
 
 All notable changes to rexmod. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixed
+
+- The review comment box no longer pops up code completion while you type a note.
+
 ## [0.1.3] - 2026-11-01
 
 ### Fixed
