@@ -43,15 +43,16 @@ fi
 STAGE=""
 trap 'rm -rf "$LOCK" ${STAGE:+"$STAGE"}' EXIT
 # Sparkle can't update the patched app: its installer only talks to an app
-# signed by Superlogical. Turn its checks off so Rex doesn't show "Update
-# failed"; rexmod's re-patch agent installs updates instead (update.sh).
-# unpatch.sh turns them back on.
-if [ "$MODE" != "--test" ]; then
+# signed by Superlogical. Once Rex is patched, turn its checks off so Rex
+# doesn't show "Update failed"; rexmod's re-patch agent installs updates
+# instead (update.sh). unpatch.sh turns them back on.
+quiet_sparkle() {
   defaults write com.superlogical.rex SUEnableAutomaticChecks -bool false
   defaults write com.superlogical.rex SUAutomaticallyUpdate -bool false
-fi
+}
 # Checked inside the lock: the other run may have just patched it.
 if "$INSERT" --check "$APP/$BIN_REL" "$DYLIB" >/dev/null 2>&1 && [ "$MODE" != "--test" ]; then
+  quiet_sparkle
   echo "Rex is already patched"
   exit 0
 fi
@@ -91,4 +92,5 @@ rm -rf "$PREFIX/replaced"
 mkdir -p "$PREFIX/replaced"
 mv "$APP" "$PREFIX/replaced/"
 mv "$S" "$APP"
+quiet_sparkle
 echo "patched Rex $VERSION"

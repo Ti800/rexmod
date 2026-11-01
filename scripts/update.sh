@@ -12,6 +12,10 @@ PREFIX="$HOME/Library/Application Support/rexmod"
 APP="${REX_APP:-/Applications/Rex Beta.app}"
 TEAM="AG92C3PT77"
 FEED=$(defaults read "$APP/Contents/Info.plist" SUFeedURL 2>/dev/null || echo "https://blob.superlogical.com/public/rex-app/snapshot-arm64/appcast.xml")
+# Only Superlogical's own servers, over HTTPS (redirects included).
+official() { printf '%s' "$1" | grep -Eq '^https://([a-z0-9-]+\.)*superlogical\.com/'; }
+official "$FEED" || { echo "refusing the update feed $FEED"; exit 1; }
+CURL="curl -fsSL --proto =https --proto-redir =https"
 # One update at a time (the hourly agent and a manual run can meet).
 LOCK="$PREFIX/.update.lock"
 mkdir -p "$PREFIX"
@@ -26,7 +30,7 @@ fi
 WORK="$(mktemp -d)"
 trap 'hdiutil detach "$WORK/mnt" >/dev/null 2>&1 || true; rm -rf "$WORK" "$LOCK"' EXIT
 
-curl -fsSL --max-time 60 "$FEED" -o "$WORK/appcast.xml"
+$CURL --max-time 60 "$FEED" -o "$WORK/appcast.xml"
 URL=$(grep -o 'enclosure url="[^"]*"' "$WORK/appcast.xml" | head -1 | sed 's/^enclosure url="//; s/"$//')
 LATEST=$(grep -o '<sparkle:version>[0-9]*' "$WORK/appcast.xml" | head -1 | sed 's/.*>//')
 CURRENT=$(defaults read "$APP/Contents/Info.plist" CFBundleVersion 2>/dev/null || echo 0)
@@ -37,14 +41,19 @@ if [ "$LATEST" = "$CURRENT" ] && [ "${1:-}" != "--force" ]; then
   exit 0
 fi
 
+official "$URL" || { echo "refusing the download $URL"; exit 1; }
 echo "downloading $URL"
-curl -fsSL --max-time 600 "$URL" -o "$WORK/rex.dmg"
+$CURL --max-time 600 "$URL" -o "$WORK/rex.dmg"
 mkdir -p "$WORK/mnt"
 hdiutil attach -nobrowse -readonly -mountpoint "$WORK/mnt" "$WORK/rex.dmg" >/dev/null
 NEW=$(find "$WORK/mnt" -maxdepth 1 -name '*.app' | head -1)
 [ -n "$NEW" ] || { echo "no app in the disk image"; exit 1; }
 codesign --verify --deep --strict "$NEW"
-codesign -dv "$NEW" 2>&1 | grep -q "TeamIdentifier=$TEAM" || { echo "unexpected signer"; exit 1; }
+# Signed by Superlogical's Developer ID, checked exactly and as a requirement.
+TID=$(codesign -dv "$NEW" 2>&1 | sed -n 's/^TeamIdentifier=//p')
+[ "$TID" = "$TEAM" ] || { echo "unexpected signer: $TID"; exit 1; }
+codesign --verify -R="anchor apple generic and certificate leaf[subject.OU] = \"$TEAM\"" "$NEW" ||
+  { echo "unexpected signer"; exit 1; }
 spctl -a -t exec "$NEW" || { echo "Gatekeeper rejected the update"; exit 1; }
 ditto "$NEW" "$WORK/Rex Beta.app"
 hdiutil detach "$WORK/mnt" >/dev/null

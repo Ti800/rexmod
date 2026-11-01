@@ -31,11 +31,24 @@ cat > "$RUNNER" <<RUN
 sleep 5
 export REX_APP="$APP"
 [ -d "\$REX_APP" ] || exit 0
-out=\$("$PREFIX/scripts/update.sh" 2>&1) || out="\$out
+LOG="$PREFIX/repatch.log"
+FAILS="$PREFIX/.update-failures"
+if out=\$("$PREFIX/scripts/update.sh" 2>&1); then
+  rm -f "\$FAILS"
+else
+  rc=\$?
+  printf '%s update.sh failed (%s)\n%s\n' "\$(date '+%F %T')" "\$rc" "\$out" >> "\$LOG"
+  n=\$((\$(cat "\$FAILS" 2>/dev/null || echo 0) + 1))
+  echo "\$n" > "\$FAILS"
+  # Still keep the installed Rex patched.
+  out="\$out
 \$("$PREFIX/scripts/patch.sh" 2>&1)"
+  if [ "\$n" -eq 3 ]; then
+    /usr/bin/osascript -e 'display notification "rexmod could not update Rex three times in a row. See ~/Library/Application Support/rexmod/repatch.log" with title "rexmod"' >/dev/null 2>&1 || true
+  fi
+fi
 case "\$out" in
-  *"patched Rex"*|*rror*|*rejected*|*unexpected*)
-    printf '%s\n%s\n' "\$(date '+%F %T')" "\$out" >> "$PREFIX/repatch.log" ;;
+  *"patched Rex"*) printf '%s\n%s\n' "\$(date '+%F %T')" "\$out" >> "\$LOG" ;;
 esac
 case "\$out" in
   *"installed official Rex"*"patched Rex"*)
