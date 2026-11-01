@@ -7,8 +7,9 @@
 #
 # Adds a weak LC_LOAD_WEAK_DYLIB for the panel dylib and re-signs the main
 # bundle ad hoc with the original entitlements plus disable-library-validation.
-# The Rex server helper and Sparkle keep their own signatures. Run it again
-# after every Rex update (update.sh does).
+# The Rex server helper and Sparkle keep their own signatures. Sparkle can't
+# update the patched app, so its checks are turned off; update.sh installs
+# new Rex versions (the re-patch agent runs it every hour).
 set -eu
 HERE="$(cd "$(dirname "$0")" && pwd)"
 PREFIX="$HOME/Library/Application Support/rexmod"
@@ -41,6 +42,14 @@ if ! mkdir "$LOCK" 2>/dev/null; then
 fi
 STAGE=""
 trap 'rm -rf "$LOCK" ${STAGE:+"$STAGE"}' EXIT
+# Sparkle can't update the patched app: its installer only talks to an app
+# signed by Superlogical. Turn its checks off so Rex doesn't show "Update
+# failed"; rexmod's re-patch agent installs updates instead (update.sh).
+# unpatch.sh turns them back on.
+if [ "$MODE" != "--test" ]; then
+  defaults write com.superlogical.rex SUEnableAutomaticChecks -bool false
+  defaults write com.superlogical.rex SUAutomaticallyUpdate -bool false
+fi
 # Checked inside the lock: the other run may have just patched it.
 if "$INSERT" --check "$APP/$BIN_REL" "$DYLIB" >/dev/null 2>&1 && [ "$MODE" != "--test" ]; then
   echo "Rex is already patched"

@@ -151,9 +151,14 @@ flowchart LR
 
 ## Updating and uninstalling
 
-Updates: `brew upgrade rexmod && rexmod-setup`, or run the one-line install again. Rex's own updates are handled by the LaunchAgent; to update
-Rex by hand, run `~/Library/Application\ Support/rexmod/scripts/update.sh` (it downloads the official
-build and checks its signature, Team ID and notarization before patching).
+Updates: `brew upgrade rexmod && rexmod-setup`, or run the one-line install again.
+
+Rex itself: Sparkle can't update a patched Rex (its installer only accepts an app signed by
+Superlogical), so rexmod turns Sparkle's checks off and its LaunchAgent updates Rex instead, every
+hour: it downloads the official build, checks its signature, Team ID and notarization, patches it
+and asks you to reopen Rex. To do it now: `~/Library/Application\ Support/rexmod/scripts/update.sh`.
+
+
 
 Uninstall, which restores the official Rex and removes the hooks, the `⌘P` block and the files:
 

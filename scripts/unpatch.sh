@@ -12,4 +12,7 @@ rm -rf "$PREFIX/replaced"
 mkdir -p "$PREFIX/replaced"
 [ -d "$APP" ] && mv "$APP" "$PREFIX/replaced/"
 ditto "$B" "$APP"
+# The official build updates itself again.
+defaults write com.superlogical.rex SUEnableAutomaticChecks -bool true
+defaults write com.superlogical.rex SUAutomaticallyUpdate -bool true
 echo "restored the official Rex $(cat "$PREFIX/backup/VERSION" 2>/dev/null). Quit Rex and open it again."

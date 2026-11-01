@@ -1,7 +1,8 @@
 #!/bin/sh
 # Updates Rex from the official appcast and re-applies the panel patch.
-# Sparkle can't update the patched app (its ad hoc signature no longer matches
-# the official one), so run this when Rex says an update is available.
+# Sparkle can't update the patched app (its installer only accepts an app
+# signed by Superlogical), so this does it instead: the re-patch agent runs it
+# every hour, and you can run it any time.
 #
 # Checks before installing: valid signature, Team ID AG92C3PT77, and that
 # Gatekeeper accepts the app (notarized).
@@ -11,8 +12,19 @@ PREFIX="$HOME/Library/Application Support/rexmod"
 APP="${REX_APP:-/Applications/Rex Beta.app}"
 TEAM="AG92C3PT77"
 FEED=$(defaults read "$APP/Contents/Info.plist" SUFeedURL 2>/dev/null || echo "https://blob.superlogical.com/public/rex-app/snapshot-arm64/appcast.xml")
+# One update at a time (the hourly agent and a manual run can meet).
+LOCK="$PREFIX/.update.lock"
+mkdir -p "$PREFIX"
+if ! mkdir "$LOCK" 2>/dev/null; then
+  if [ -n "$(find "$LOCK" -maxdepth 0 -mmin +30 2>/dev/null)" ]; then
+    rm -rf "$LOCK" && mkdir "$LOCK"
+  else
+    echo "another update is running"
+    exit 0
+  fi
+fi
 WORK="$(mktemp -d)"
-trap 'hdiutil detach "$WORK/mnt" >/dev/null 2>&1 || true; rm -rf "$WORK"' EXIT
+trap 'hdiutil detach "$WORK/mnt" >/dev/null 2>&1 || true; rm -rf "$WORK" "$LOCK"' EXIT
 
 curl -fsSL --max-time 60 "$FEED" -o "$WORK/appcast.xml"
 URL=$(grep -o 'enclosure url="[^"]*"' "$WORK/appcast.xml" | head -1 | sed 's/^enclosure url="//; s/"$//')

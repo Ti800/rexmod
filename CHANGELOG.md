@@ -7,6 +7,7 @@ All notable changes to rexmod. The format follows [Keep a Changelog](https://kee
 ### Fixed
 
 - The review comment box no longer pops up code completion while you type a note.
+- Rex updates: the patched Rex showed "Update failed" because Sparkle's installer only accepts an app signed by Superlogical. Sparkle's checks are now off while Rex is patched (and back on after `unpatch.sh`), and the re-patch agent installs new Rex versions itself every hour with `update.sh`.
 
 ## [0.1.3] - 2026-11-01
 

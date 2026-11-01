@@ -1,8 +1,9 @@
 #!/bin/sh
-# Re-applies the patch whenever Rex updates itself. Sparkle replaces the
-# patched app with the official build (seen: 1726 -> 1728), which drops the
-# panel. A LaunchAgent watches Rex's Info.plist and runs patch.sh after an
-# update, then posts a notification to reopen Rex.
+# Keeps Rex patched and up to date. Sparkle can't update the patched app (its
+# installer only accepts an app signed by Superlogical), so a LaunchAgent runs
+# update.sh every hour and whenever Rex's Info.plist changes: it installs a
+# new official Rex (checked first), patches it, and posts a notification to
+# reopen Rex.
 #
 #   install-watcher.sh            install and load the agent
 #   install-watcher.sh --remove   unload and delete it
@@ -24,14 +25,26 @@ fi
 mkdir -p "$HOME/Library/LaunchAgents"
 cat > "$RUNNER" <<RUN
 #!/bin/sh
-# Run by launchd when Rex's Info.plist changes. Waits for the update to settle.
+# Run by launchd every hour and whenever Rex's Info.plist changes. Sparkle
+# can't update the patched app, so this installs new Rex versions (update.sh:
+# official build, checked, then patched) and re-applies the patch when needed.
 sleep 5
 export REX_APP="$APP"
 [ -d "\$REX_APP" ] || exit 0
-"$PREFIX/scripts/patch.sh" --check >/dev/null 2>&1 && exit 0
-echo "\$(date '+%F %T') Rex changed; patching" >> "$PREFIX/repatch.log"
-"$PREFIX/scripts/patch.sh" >> "$PREFIX/repatch.log" 2>&1 || exit 1
-/usr/bin/osascript -e 'display notification "Rex updated; the Changes panel was re-applied. Quit Rex (⌘Q) and open it again." with title "rexmod"' >/dev/null 2>&1 || true
+out=\$("$PREFIX/scripts/update.sh" 2>&1) || out="\$out
+\$("$PREFIX/scripts/patch.sh" 2>&1)"
+case "\$out" in
+  *"patched Rex"*|*rror*|*rejected*|*unexpected*)
+    printf '%s\n%s\n' "\$(date '+%F %T')" "\$out" >> "$PREFIX/repatch.log" ;;
+esac
+case "\$out" in
+  *"installed official Rex"*"patched Rex"*)
+    msg="Rex was updated and the Changes panel re-applied. Quit Rex (⌘Q) and open it again." ;;
+  *"patched Rex"*)
+    msg="The Changes panel was re-applied. Quit Rex (⌘Q) and open it again." ;;
+  *) exit 0 ;;
+esac
+/usr/bin/osascript -e "display notification \"\$msg\" with title \"rexmod\"" >/dev/null 2>&1 || true
 RUN
 chmod 755 "$RUNNER"
 cat > "$PLIST" <<PL
@@ -42,6 +55,7 @@ cat > "$PLIST" <<PL
   <key>Label</key><string>$LABEL</string>
   <key>ProgramArguments</key><array><string>/bin/sh</string><string>$RUNNER</string></array>
   <key>WatchPaths</key><array><string>$APP/Contents/Info.plist</string></array>
+  <key>StartInterval</key><integer>3600</integer>
   <key>RunAtLoad</key><true/>
   <key>ThrottleInterval</key><integer>30</integer>
 </dict>
