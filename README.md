@@ -13,7 +13,7 @@
   [The loop](#the-loop) • [Install](#install) • [Usage](#usage) • [How it works](#how-it-works) • [FAQ](#faq)
 </div>
 
-https://github.com/user-attachments/assets/c171e496-c1e9-445c-b0aa-851c6e5f62aa
+https://github.com/user-attachments/assets/0f282ffd-628e-4210-80ee-c330c7b5cf40
 
 <p align="center"><sub>One minute, sped up where Claude thinks. No player? <a href="assets/demo.mp4">Download the video</a>.</sub></p>
 
