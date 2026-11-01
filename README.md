@@ -13,9 +13,9 @@
   [The loop](#the-loop) • [Install](#install) • [Usage](#usage) • [How it works](#how-it-works) • [FAQ](#faq)
 </div>
 
-https://github.com/user-attachments/assets/0f282ffd-628e-4210-80ee-c330c7b5cf40
+https://github.com/user-attachments/assets/a3b3de71-8372-441a-851a-12cfe8c0f033
 
-<p align="center"><sub>One minute, sped up where Claude thinks. No player? <a href="assets/demo.mp4">Download the video</a>.</sub></p>
+<p align="center"><sub>One minute, sped up while the agent works. No player? <a href="assets/demo.mp4">Download the video</a>.</sub></p>
 
 Rex already runs your agents. rexmod builds the harness around them: it records every turn, so you
 see exactly what the agent changed; it opens a real editor beside the agent to read and review that
