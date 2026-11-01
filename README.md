@@ -66,6 +66,7 @@ and opened once, and [Homebrew](https://brew.sh) (for Neovim, fzf and Node, if y
 With Homebrew:
 
 ```sh
+brew trust --tap alpcanaydin/rexmod   # Homebrew asks you to trust third-party taps
 brew install alpcanaydin/rexmod/rexmod
 rexmod-setup
 ```
