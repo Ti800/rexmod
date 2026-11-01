@@ -13,7 +13,7 @@
   [The loop](#the-loop) • [Install](#install) • [Usage](#usage) • [How it works](#how-it-works) • [FAQ](#faq)
 </div>
 
-https://github.com/user-attachments/assets/a3b3de71-8372-441a-851a-12cfe8c0f033
+https://github.com/user-attachments/assets/ac2e4950-17d7-4bd9-b16a-9bd8cb463f49
 
 <p align="center"><sub>One minute, sped up while the agent works. No player? <a href="assets/demo.mp4">Download the video</a>.</sub></p>
 
