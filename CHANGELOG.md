@@ -2,6 +2,13 @@
 
 All notable changes to rexmod. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixed
+
+- Codex: turns and comments go to the right pane. Codex runs hooks in a shared background server whose environment names whichever pane started it; rexmod now finds the pane where Codex works in that folder.
+- OpenCode 2: the plugins load again (OpenCode 2 wants `{ id, setup }`), comments join your message through its `prompt` hook, a turn ends on `session.execution.*`, and the TUI half is listed in `cli.json`.
+
 ## [0.1.2] - 2026-11-01
 
 ### Fixed

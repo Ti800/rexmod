@@ -185,6 +185,98 @@ type AgentPane struct {
 	cwd     string
 }
 
+// agentPaneIn finds the Rex pane where agent (a display name from
+// agentNames) runs in dir: in it, or anywhere in the same repository. For
+// agents whose hooks run in a shared background server (Codex, OpenCode),
+// whose environment names whichever pane started that server. Several
+// matches are ambiguous and give "", so a note never reaches the wrong pane.
+func agentPaneIn(agent, dir string) string {
+	var list struct {
+		Sessions []struct {
+			SessionID string `json:"session_id"`
+		} `json:"sessions"`
+	}
+	if dir == "" || rexJSON(&list, "ls", "--json") != nil {
+		return ""
+	}
+	root, _ := repoRoot(dir)
+	type cand struct{ session, block string }
+	var cands []cand
+	for _, s := range list.Sessions {
+		v, err := sessionView(s.SessionID)
+		if err != nil {
+			continue
+		}
+		for _, w := range v.Windows {
+			for _, b := range w.blocks() {
+				if strings.HasSuffix(b.Flavor, "terminal.shell") {
+					cands = append(cands, cand{s.SessionID, b.BlockID})
+				}
+			}
+		}
+	}
+	hits := make([]bool, len(cands))
+	var wg sync.WaitGroup
+	for i, c := range cands {
+		wg.Add(1)
+		go func(i int, c cand) {
+			defer wg.Done()
+			p, err := blockProc(c.session, c.block)
+			if err != nil || p.Foreground == nil || agentOf(p.Foreground) != agent {
+				return
+			}
+			if p.Foreground.Cwd == dir {
+				hits[i] = true
+			} else if r, err := repoRoot(p.Foreground.Cwd); err == nil && root != "" && r == root {
+				hits[i] = true
+			}
+		}(i, c)
+	}
+	wg.Wait()
+	found := ""
+	for i, hit := range hits {
+		if !hit {
+			continue
+		}
+		if found != "" {
+			return "" // two of them: can't tell which
+		}
+		found = cands[i].block
+	}
+	return found
+}
+
+// paneCwd returns the working directory of the foreground process in a Rex
+// pane, wherever it is, or "".
+func paneCwd(block string) string {
+	var list struct {
+		Sessions []struct {
+			SessionID string `json:"session_id"`
+		} `json:"sessions"`
+	}
+	if rexJSON(&list, "ls", "--json") != nil {
+		return ""
+	}
+	for _, s := range list.Sessions {
+		v, err := sessionView(s.SessionID)
+		if err != nil {
+			continue
+		}
+		for _, w := range v.Windows {
+			for _, b := range w.blocks() {
+				if !sameBlock(b.BlockID, block) {
+					continue
+				}
+				if p, err := blockProc(s.SessionID, b.BlockID); err == nil && p.Foreground != nil {
+					return p.Foreground.Cwd
+				}
+				return ""
+			}
+		}
+	}
+	return ""
+}
+
 // lastAgentFile remembers, per Rex window, the agent pane focused last, so
 // the panel keeps following it while you work in the editor or a shell.
 func lastAgentFile(window string) string {

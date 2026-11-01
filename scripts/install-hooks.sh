@@ -5,7 +5,7 @@
 #   Codex        ~/.codex/hooks.json                the same hooks (Codex asks you to trust
 #                                                   new hooks once: run /hooks in Codex)
 #   OpenCode     ~/.config/opencode/plugins/rexmod.js   server plugin (chat.message, session.idle)
-#                ~/.config/opencode/plugins/rexmod-tui/   TUI plugin, listed in tui.json: tells
+#                ~/.config/opencode/plugins/rexmod-tui/   TUI plugin, listed in cli.json/tui.json: tells
 #                                                   rexmod which Rex pane shows a session
 #   Pi           ~/.pi/agent/extensions/rexmod.ts       extension (before_agent_start, agent_settled)
 #
@@ -98,21 +98,24 @@ skill() {
   echo "installed $1/rexmod"
 }
 
-# tui_json FILE ENTRY: list (or unlist) a TUI plugin in OpenCode's tui.json.
-tui_json() {
+# tui_list FILE KEY ENTRY: list (or unlist) a TUI plugin in an OpenCode config
+# file: tui.json "plugin" (OpenCode 1) or cli.json "plugins" (OpenCode 2).
+tui_list() {
   if [ "$MODE" = remove ] && [ ! -f "$1" ]; then return 0; fi
   [ -f "$1" ] || echo '{}' > "$1"
-  /usr/bin/python3 - "$1" "$2" "$MODE" <<'PY'
+  /usr/bin/python3 - "$1" "$2" "$3" "$MODE" <<'PY'
 import json, sys
-path, entry, mode = sys.argv[1], sys.argv[2], sys.argv[3]
+path, key, entry, mode = sys.argv[1:5]
 d = json.loads(open(path).read() or "{}")
-plugins = [p for p in d.get("plugin", []) if "rexmod-tui" not in (p if isinstance(p, str) else json.dumps(p))]
+plugins = [p for p in d.get(key, []) if "rexmod-tui" not in (p if isinstance(p, str) else json.dumps(p))]
 if mode != "remove":
     plugins.append(entry)
 if plugins:
-    d["plugin"] = plugins
+    d[key] = plugins
 else:
-    d.pop("plugin", None)
+    d.pop(key, None)
+if path.endswith("cli.json") and d and "$schema" not in d:
+    d = {"$schema": "https://opencode.ai/v2/cli.json", **d}
 open(path, "w").write(json.dumps(d, indent=2) + "\n")
 PY
 }
@@ -129,7 +132,8 @@ if has opencode "$OPENCODE_DIR"; then
   plugin "$AGENTS/opencode-rexmod.js" "$OPENCODE_DIR/plugins/rexmod.js"
   plugin "$AGENTS/opencode-rexmod-tui.js" "$OPENCODE_DIR/plugins/rexmod-tui/tui.js"
   [ "$MODE" = remove ] && rmdir "$OPENCODE_DIR/plugins/rexmod-tui" 2>/dev/null || true
-  tui_json "$OPENCODE_DIR/tui.json" "file://$OPENCODE_DIR/plugins/rexmod-tui/tui.js"
+  tui_list "$OPENCODE_DIR/tui.json" plugin "file://$OPENCODE_DIR/plugins/rexmod-tui/tui.js"
+  tui_list "$OPENCODE_DIR/cli.json" plugins "file://$OPENCODE_DIR/plugins/rexmod-tui/tui.js"
   # OpenCode 2 keeps one background server; it loads new plugins when it restarts.
   [ "$MODE" = add ] && echo "    OpenCode: quit OpenCode (or run: pkill -f 'opencode serve') so it loads the plugin."
 fi

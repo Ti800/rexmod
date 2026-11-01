@@ -518,9 +518,11 @@ func writeBlock(session, block, data string) error {
 }
 
 type hookInput struct {
-	SessionID string `json:"session_id"`
-	Cwd       string `json:"cwd"`
-	Event     string `json:"hook_event_name"`
+	SessionID      string `json:"session_id"`
+	Cwd            string `json:"cwd"`
+	Event          string `json:"hook_event_name"`
+	TranscriptPath string `json:"transcript_path"`
+	TurnID         string `json:"turn_id"` // Codex only
 }
 
 // openCodePane returns the Rex pane the OpenCode TUI recorded for a
@@ -561,23 +563,39 @@ func cmdHook(args []string) error {
 	var in hookInput
 	b, _ := io.ReadAll(os.Stdin)
 	_ = json.Unmarshal(b, &in)
+	// Codex and OpenCode run hooks in a shared background server, not in the
+	// agent's pane: REX_BLOCK there names whichever pane started the server.
+	if agent == "" && (in.TurnID != "" || strings.Contains(in.TranscriptPath, "/.codex/")) {
+		agent = "codex"
+	}
+	switch agent {
+	case "codex":
+		os.Setenv("REX_BLOCK", agentPaneIn("Codex", in.Cwd))
+	case "opencode":
+		// The TUI half records which pane shows the session.
+		pane := ""
+		if in.SessionID != "" {
+			wait := 0 * time.Millisecond
+			if args[0] == "prompt" {
+				wait = time.Second // a new session's TUI may not have recorded it yet
+			}
+			pane = openCodePane(in.SessionID, wait)
+		}
+		if pane == "" {
+			pane = agentPaneIn("OpenCode", in.Cwd)
+		}
+		os.Setenv("REX_BLOCK", pane)
+		// OpenCode 2's plugin context doesn't say where the session works.
+		if in.Cwd == "" && pane != "" {
+			in.Cwd = paneCwd(pane)
+		}
+	}
 	if in.Cwd == "" {
 		in.Cwd, _ = os.Getwd()
 	}
 	repo, err := repoRoot(in.Cwd)
 	if err != nil {
 		return nil // not a git repo: nothing to record
-	}
-	// OpenCode runs its plugins in a shared server outside the pane; its TUI
-	// half records which pane shows the session.
-	if os.Getenv("REX_BLOCK") == "" && agent == "opencode" && in.SessionID != "" {
-		wait := 0 * time.Millisecond
-		if args[0] == "prompt" {
-			wait = time.Second // a new session's TUI may not have recorded it yet
-		}
-		if b := openCodePane(in.SessionID, wait); b != "" {
-			os.Setenv("REX_BLOCK", b)
-		}
 	}
 	switch args[0] {
 	case "prompt":
