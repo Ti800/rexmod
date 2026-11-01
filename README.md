@@ -186,6 +186,16 @@ terminal or app) in the same repository only gets notes written outside Rex.
 </details>
 
 <details>
+<summary>Two Codex panes in the same repository</summary>
+
+Codex runs its hooks in one background server for every pane, so rexmod finds the pane by looking
+for the Codex that works in that folder. With two of them in the same repository it can't tell
+which one sent the message, and rather than guess it leaves the notes pending and records the turn
+without a pane. Send those notes with the comment badge in the panel: it pastes them straight into
+the pane the panel follows. Claude Code, OpenCode and Pi don't have this limit.
+</details>
+
+<details>
 <summary>Debugging the panel</summary>
 
 Darwin notifications drive it from a shell: `notifyutil -p dev.rexmod.toggle` (also `.refresh`,
