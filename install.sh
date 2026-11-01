@@ -70,6 +70,7 @@ need() { # tool formula
 }
 need nvim neovim
 need fzf fzf
+need node node # language servers installed with npm (TypeScript, JSON, YAML, CSS, Pyright…)
 NVIM="$(command -v nvim || echo /opt/homebrew/bin/nvim)"
 
 # --- files ------------------------------------------------------------------

@@ -2,6 +2,12 @@
 
 All notable changes to rexmod. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixed
+
+- The installer installs Node when it's missing: without it, language servers installed with npm (TypeScript, JSON, YAML, CSS, Pyright…) couldn't be set up on a fresh Mac.
+
 ## [0.1.1] - 2026-11-01
 
 ### Added

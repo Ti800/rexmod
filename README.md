@@ -61,7 +61,7 @@ Around the loop:
 ## Install
 
 You need a Mac with Apple silicon on macOS 15 or later, [Rex](https://rex.superlogical.com) installed
-and opened once, and [Homebrew](https://brew.sh) (for Neovim and fzf, if you don't have them).
+and opened once, and [Homebrew](https://brew.sh) (for Neovim, fzf and Node, if you don't have them).
 
 With Homebrew:
 
