@@ -27,6 +27,21 @@ INSERT="$PREFIX/bin/insertdylib"
 if [ "$MODE" = "--check" ]; then
   exec "$INSERT" --check "$APP/$BIN_REL" "$DYLIB"
 fi
+# One patch at a time: a re-patch agent and an install can fire together
+# after a Rex update, and two runs swapping the app at once would break it.
+LOCK="$PREFIX/.patch.lock"
+mkdir -p "$PREFIX"
+if ! mkdir "$LOCK" 2>/dev/null; then
+  if [ -n "$(find "$LOCK" -maxdepth 0 -mmin +10 2>/dev/null)" ]; then
+    rm -rf "$LOCK" && mkdir "$LOCK" # left behind by a run that died
+  else
+    echo "another patch is running; leaving it to that one"
+    exit 0
+  fi
+fi
+STAGE=""
+trap 'rm -rf "$LOCK" ${STAGE:+"$STAGE"}' EXIT
+# Checked inside the lock: the other run may have just patched it.
 if "$INSERT" --check "$APP/$BIN_REL" "$DYLIB" >/dev/null 2>&1 && [ "$MODE" != "--test" ]; then
   echo "Rex is already patched"
   exit 0
@@ -42,7 +57,6 @@ if codesign -dv "$APP" 2>&1 | grep -q "TeamIdentifier=$TEAM"; then
 fi
 
 STAGE="$(mktemp -d)"
-trap 'rm -rf "$STAGE"' EXIT
 S="$STAGE/Rex Beta.app"
 ditto "$APP" "$S"
 "$INSERT" "$S/$BIN_REL" "$DYLIB"
