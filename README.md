@@ -3,65 +3,81 @@
 
   # rexmod
 
-  *A Changes panel, an editor pane and review comments for [Rex](https://rex.superlogical.com), built around your coding agent.*
+  *Turn [Rex](https://rex.superlogical.com) into a harness for your coding agent.*
 
   [![CI](https://img.shields.io/github/actions/workflow/status/alpcanaydin/rexmod/ci.yml?style=flat-square&label=CI)](https://github.com/alpcanaydin/rexmod/actions/workflows/ci.yml)
   [![Release](https://img.shields.io/github/v/release/alpcanaydin/rexmod?style=flat-square)](https://github.com/alpcanaydin/rexmod/releases)
   ![macOS 15+ on Apple silicon](https://img.shields.io/badge/macOS-15%2B%20%C2%B7%20Apple%20silicon-555?style=flat-square&logo=apple)
   [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
 
-  [Features](#features) • [Install](#install) • [Usage](#usage) • [How it works](#how-it-works) • [FAQ](#faq)
+  [The loop](#the-loop) • [Install](#install) • [Usage](#usage) • [How it works](#how-it-works) • [FAQ](#faq)
 </div>
 
 https://github.com/user-attachments/assets/1884e444-a837-4f86-9b9b-95171cc03947
 
 <p align="center"><sub>One minute, sped up where Claude thinks. No player? <a href="assets/demo.mp4">Download the video</a>.</sub></p>
 
-Your agent edits files in one pane. rexmod shows you what it changed, opens it in a real editor next
-to the agent, and sends your review back as comments, all inside the Rex window.
+Rex already runs your agents. rexmod builds the harness around them: it records every turn, so you
+see exactly what the agent changed; it opens a real editor beside the agent to read and review that
+code; and it hands your review back to the agent as its next input. Prompt, change, review, feedback:
+the whole loop stays in one Rex window, for Claude Code, Codex, OpenCode or Pi.
 
 > [!NOTE]
 > rexmod is an unofficial mod, not made by or affiliated with Superlogical. It patches your local copy
 > of Rex so Rex loads the panel; the uninstaller puts the official build back.
 
-## Features
+## The loop
 
-- **Changes panel.** On the right of the window, styled like Rex's own sidebar: *Last Turn* (what
-  the agent's last reply changed), *Uncommitted* and *Branch*, plus a *Files* tree. Hidden, it takes
-  no space; the toggle sits with the pane actions, `⌘⇧E` from the keyboard.
-- **Editor pane.** Click a file and it opens in Neovim beside the agent, at the changed line: vim
-  keys, LSP, completion and live diagnostics. One editor per tab; later files open as buffers.
+1. **Prompt.** Talk to your agent as usual. rexmod snapshots the working tree the moment you send.
+2. **Change.** The *Changes panel* on the right, styled like Rex's own sidebar, fills in while the
+   agent works: *Last Turn* is exactly what this reply changed, next to *Uncommitted*, *Branch* and a
+   *Files* tree.
+3. **Review.** Click a file and it opens in Neovim beside the agent, at the changed line, with LSP,
+   completion and live diagnostics. `Space r` on a line or a selection leaves a review comment.
+4. **Feedback.** Your comments ride along with your next message to the agent, or go right away
+   from the panel. The agent answers them, and the next turn starts at step 2.
+
+Around the loop:
+
 - **Any language, on demand.** Open a Go, Rust, Python, Elixir… file and its tree-sitter parser and
   language server are installed (Mason) and started on the spot.
-- **Review comments.** `Space r` on a line or a selection opens a comment box. Your notes reach the
-  agent with your next message, or right away from the panel.
-- **File picker.** `⌘P` fuzzy-finds files in the agent's repository, with the editor's syntax
-  highlighting in the preview.
-- **Every agent Rex supports.** Claude Code, Codex, OpenCode and Pi. With several agents in a tab,
-  the panel follows the one you focused last.
-- **Survives Rex updates.** Rex updates itself; rexmod re-applies the patch and asks you to reopen it.
+- **`⌘P` file picker** over the agent's repository, with the editor's syntax highlighting in the
+  preview.
+- **Several agents per tab.** The harness follows the agent you focused last; its name at the bottom
+  of the panel is a menu to switch. A note always goes to the agent it was written for.
+- **The agent knows the harness.** Every agent gets the `rexmod` skill, so it can open a file for
+  you in the editor pane (`rexmod open file:line`) when it points you at something.
+- **Out of the way.** Hidden, the panel takes no space; the toggle sits with the pane actions,
+  `⌘⇧E` from the keyboard. When Rex updates itself, rexmod re-applies the patch and asks you to
+  reopen it.
 
-| Agent | How rexmod hooks in | Last Turn | Comments with your next message |
+| Agent | How the harness hooks in | Last Turn | Comments with your next message |
 |---|---|:-:|:-:|
 | Claude Code | `UserPromptSubmit` / `Stop` hooks | ✓ | ✓ |
 | Codex | the same hooks (trust them once with `/hooks`) | ✓ | ✓ |
 | OpenCode | server plugin + TUI plugin | ✓ | ✓ |
 | Pi | extension | ✓ | ✓ |
 
-Every agent also gets the `rexmod` skill, so it can open a file for you in the editor pane
-(`rexmod open file:line`) when it points you at something.
-
 ## Install
 
 You need a Mac with Apple silicon on macOS 15 or later, [Rex](https://rex.superlogical.com) installed
 and opened once, and [Homebrew](https://brew.sh) (for Neovim and fzf, if you don't have them).
 
+With Homebrew:
+
+```sh
+brew install alpcanaydin/tap/rexmod
+rexmod-setup
+```
+
+Or in one line:
+
 ```sh
 curl -fsSL https://raw.githubusercontent.com/alpcanaydin/rexmod/main/install.sh | sh
 ```
 
-Then quit Rex (`⌘Q`) and open it again. Nothing is compiled on your machine; the installer downloads
-the latest release.
+Then quit Rex (`⌘Q`) and open it again. Nothing is compiled on your machine. After `brew upgrade
+rexmod`, run `rexmod-setup` again.
 
 <details>
 <summary>What the installer does</summary>
@@ -134,7 +150,7 @@ flowchart LR
 
 ## Updating and uninstalling
 
-Updates: run the install command again. Rex's own updates are handled by the LaunchAgent; to update
+Updates: `brew upgrade rexmod && rexmod-setup`, or run the one-line install again. Rex's own updates are handled by the LaunchAgent; to update
 Rex by hand, run `~/Library/Application\ Support/rexmod/scripts/update.sh` (it downloads the official
 build and checks its signature, Team ID and notarization before patching).
 
