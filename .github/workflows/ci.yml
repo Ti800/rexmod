@@ -13,8 +13,8 @@ jobs:
     name: Go, Swift and scripts
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
       - name: Go vet and test
@@ -26,7 +26,7 @@ jobs:
           test -z "$(gofmt -l cmd)"
       - name: Build the prebuilt files (rexmod, insertdylib, panel)
         run: make dist
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: dist
           path: dist/
