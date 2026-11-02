@@ -2,11 +2,21 @@
 
 All notable changes to rexmod. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.10] - 2026-11-02
+
+### Fixed
+
+- Setup allows `rexmod comments resolve` in Claude Code (`Bash(rexmod comments resolve:*)` in `~/.claude/settings.json`), so the agent can clear the comments it addressed in auto mode without you adding the rule. Uninstalling removes it.
+
+### Security
+
+- `rexmod comments resolve` only clears a comment already sent to the agent that runs it. Code quoted in a comment can't get the agent to clear comments still waiting to be sent or meant for another agent.
+
 ## [0.1.9] - 2026-11-02
 
 ### Added
 
-- The agent clears the review comments it addressed. Each comment it gets carries its id, and once it has acted on one it runs `rexmod comments resolve --id <id>`, which removes the comment from your editor. Comments it didn't act on (a question, say) stay where they are. In Claude Code's auto mode, allow the command first: add `"Bash(rexmod comments resolve:*)"` to `permissions.allow` in `~/.claude/settings.json`.
+- The agent clears the review comments it addressed. Each comment it gets carries its id, and once it has acted on one it runs `rexmod comments resolve --id <id>`, which removes the comment from your editor. Comments it didn't act on (a question, say) stay where they are. In Claude Code's auto mode, allow the command first: add `"Bash(rexmod comments resolve:*)"` to `permissions.allow` in `~/.claude/settings.json` (0.1.10's setup does it for you).
 
 ### Fixed
 
