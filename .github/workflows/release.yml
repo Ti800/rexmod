@@ -31,3 +31,19 @@ jobs:
             gh release create "$GITHUB_REF_NAME" "${{ steps.pack.outputs.file }}" \
               --title "rexmod $GITHUB_REF_NAME" --notes "${notes:-See CHANGELOG.md}"
           fi
+      - name: Update Homebrew tap
+        env:
+          GH_TOKEN: ${{ secrets.TAP_TOKEN }}
+          FILE: ${{ steps.pack.outputs.file }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then echo "::warning::TAP_TOKEN not set; skipping tap update"; exit 0; fi
+          name=$(basename "$FILE")
+          sha=$(shasum -a 256 "$FILE" | cut -d' ' -f1)
+          url="https://github.com/${{ github.repository }}/releases/download/$GITHUB_REF_NAME/$name"
+          gh repo clone alpcanaydin/homebrew-rexmod tap -- -q
+          cd tap
+          sed -i '' -E "s|^  url \".*\"|  url \"$url\"|; s|^  sha256 \".*\"|  sha256 \"$sha\"|" Formula/rexmod.rb
+          git diff --quiet && { echo "tap already up to date"; exit 0; }
+          git -c user.name="github-actions[bot]" -c user.email="41898333+github-actions[bot]@users.noreply.github.com" \
+            commit -qam "rexmod $GITHUB_REF_NAME"
+          git push -q "https://x-access-token:$GH_TOKEN@github.com/alpcanaydin/homebrew-rexmod.git" HEAD
