@@ -2,6 +2,16 @@
 
 All notable changes to rexmod. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.9] - 2026-11-02
+
+### Added
+
+- The agent clears the review comments it addressed. Each comment it gets carries its id, and once it has acted on one it runs `rexmod comments resolve --id <id>`, which removes the comment from your editor. Comments it didn't act on (a question, say) stay where they are. In Claude Code's auto mode, allow the command first: add `"Bash(rexmod comments resolve:*)"` to `permissions.allow` in `~/.claude/settings.json`.
+
+### Fixed
+
+- Neovim redraws review comments as soon as they change outside the editor (sent to the agent, resolved), instead of waiting for you to switch back to it.
+
 ## [0.1.8] - 2026-11-02
 
 ### Added
