@@ -28,6 +28,7 @@ const usage = `rexmod: Rex Changes panel, editor and review helpers
   rexmod comments list [--file F] [--pending] [--json]
   rexmod comments edit --id ID --text T              change a comment (it becomes pending again)
   rexmod comments delete --id ID
+  rexmod comments resolve --id ID                     the agent clears a note it addressed
   rexmod comments clear [--sent]
   rexmod comments send [--session S] [--window W]      paste pending comments into the agent
   rexmod follow   --session S --window W --block B     follow (and focus) another agent pane of the window
@@ -312,7 +313,7 @@ func cmdPreview(args []string) error {
 
 func cmdComments(args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("comments: add | list | edit | delete | clear | send")
+		return fmt.Errorf("comments: add | list | edit | delete | resolve | clear | send")
 	}
 	sub, args := args[0], args[1:]
 	fs := flag.NewFlagSet("comments "+sub, flag.ExitOnError)
@@ -422,7 +423,7 @@ func cmdComments(args []string) error {
 		}
 		return fmt.Errorf("no comment with id %q", *id)
 
-	case "delete":
+	case "delete", "resolve": // resolve: the agent reports a note addressed
 		r, err := repoFrom(*repo, *file)
 		if err != nil {
 			return err

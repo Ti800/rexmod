@@ -176,6 +176,44 @@ local function update_focus(buf)
   render(buf)
 end
 
+--- Watch a repo's comment store so notes changed outside Neovim (the agent
+--- resolving one, the hook marking them sent) redraw right away.
+local watchers, watched_dirs, refresh_timer = {}, {}, nil
+local refresh_all
+local function watch_store(file)
+  local dir = vim.fs.dirname(file)
+  if watched_dirs[dir] ~= nil then
+    return
+  end
+  watched_dirs[dir] = false
+  local out = vim.fn.systemlist({ "git", "-C", dir, "rev-parse", "--absolute-git-dir" })
+  if vim.v.shell_error ~= 0 or not out[1] then
+    return
+  end
+  local store = out[1] .. "/rexmod"
+  vim.fn.mkdir(store, "p")
+  if watchers[store] then
+    return
+  end
+  local w = vim.uv.new_fs_event()
+  if not w then
+    return
+  end
+  watchers[store] = w
+  w:start(store, {}, function(_, name)
+    if name and not name:match("^comments") then
+      return
+    end
+    if refresh_timer then
+      refresh_timer:stop()
+    end
+    refresh_timer = vim.defer_fn(function()
+      refresh_timer = nil
+      refresh_all()
+    end, 100)
+  end)
+end
+
 --- Fetch the comments of a buffer and draw them.
 function M.refresh(buf)
   buf = (buf and buf ~= 0) and buf or vim.api.nvim_get_current_buf()
@@ -183,6 +221,7 @@ function M.refresh(buf)
     return
   end
   local file = vim.api.nvim_buf_get_name(buf)
+  watch_store(file)
   run({ "comments", "list", "--file", file, "--json" }, function(res)
     if not vim.api.nvim_buf_is_valid(buf) then
       return
@@ -421,7 +460,7 @@ function M.send()
   end)
 end
 
-local function refresh_all()
+function refresh_all()
   for buf in pairs(marks) do
     if vim.api.nvim_buf_is_valid(buf) then
       M.refresh(buf)

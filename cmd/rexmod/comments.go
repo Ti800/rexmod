@@ -250,7 +250,9 @@ func formatComments(cs []Comment) string {
 			writeCode(&b, lang, c.Current)
 		}
 		fmt.Fprintf(&b, "Comment: %s\n", c.Text)
+		fmt.Fprintf(&b, "(id %s)\n", c.ID)
 	}
+	b.WriteString("\nWhen you've addressed a comment, run `rexmod comments resolve --id <id>`: it only clears that note from my local review list (.git/rexmod), so it leaves my editor. Skip it for any comment you didn't act on.\n")
 	return stripControl(b.String())
 }
 
