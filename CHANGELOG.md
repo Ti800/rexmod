@@ -2,6 +2,13 @@
 
 All notable changes to rexmod. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.7] - 2026-11-02
+
+### Fixed
+
+- The Changes panel follows the Rex theme: icon buttons, the shortcut tip and the header icons take their colors from the active theme, so a light theme no longer gets a dark tip or white-on-white icons. Status colors get a darker variant on light themes, and the panel refreshes when the appearance or Rex's settings change.
+- The `⌘P` picker follows Rex's appearance; its colors and preview were always dark.
+
 ## [0.1.6] - 2026-11-01
 
 ### Added
