@@ -58,6 +58,28 @@ func pickOuter(session, window string) error {
 	return nil
 }
 
+// rexBackground returns the appearance Rex draws in, "dark" or "light". Rex
+// doesn't answer the terminal's color queries, so read its setting.
+func rexBackground() string {
+	out, _ := exec.Command("defaults", "read", "com.superlogical.rex", "Workspace.appearance").Output()
+	if a := strings.TrimSpace(string(out)); a == "dark" || a == "light" {
+		return a
+	}
+	// "system", or never set. The key only exists in dark mode.
+	out, _ = exec.Command("defaults", "read", "-g", "AppleInterfaceStyle").Output()
+	if strings.TrimSpace(string(out)) == "Dark" {
+		return "dark"
+	}
+	return "light"
+}
+
+func fzfColors(background string) string {
+	if background == "light" {
+		return "light,bg+:#e8e8e8,fg+:#000000,hl:#0077aa,hl+:#0077aa,pointer:#9900cc,marker:#9900cc,prompt:#9900cc,info:#888888,header:#888888,border:#d4d4d4,spinner:#9900cc"
+	}
+	return "bg+:#161616,fg+:#ffffff,hl:#00e5ff,hl+:#00e5ff,pointer:#bb00ff,marker:#bb00ff,prompt:#bb00ff,info:#555555,header:#555555,border:#2a2a2a,spinner:#bb00ff"
+}
+
 func fzfBin() string {
 	if p, err := exec.LookPath("fzf"); err == nil {
 		return p
@@ -80,7 +102,7 @@ func pickInner(session, window, repo string) error {
 		"--header=enter open · ctrl-g changed on branch · ctrl-f all files · esc close",
 		"--preview", q(self) + " preview {}",
 		"--preview-window=right,55%,border-left",
-		"--color=bg+:#161616,fg+:#ffffff,hl:#00e5ff,hl+:#00e5ff,pointer:#bb00ff,marker:#bb00ff,prompt:#bb00ff,info:#555555,header:#555555,border:#2a2a2a,spinner:#bb00ff",
+		"--color=" + fzfColors(rexBackground()),
 		"--bind", "ctrl-g:reload(" + reloadChanged + ")+change-prompt(changed ❯ )",
 		"--bind", "ctrl-f:reload(" + reloadAll + ")+change-prompt(files ❯ )",
 		"--scheme=path",
@@ -121,7 +143,7 @@ func previewScript() string {
 func preview(path string, focus int) error {
 	if script := previewScript(); script != "" {
 		cmd := exec.Command(nvimBin(), "--headless", "-u", "NONE", "-i", "NONE", "-l", script, path, fmt.Sprint(focus), "400")
-		cmd.Env = append(os.Environ(), "NVIM_LOG_FILE=/dev/null")
+		cmd.Env = append(os.Environ(), "NVIM_LOG_FILE=/dev/null", "REXMOD_BACKGROUND="+rexBackground())
 		for k, v := range nvimEnv() {
 			cmd.Env = append(cmd.Env, k+"="+v)
 		}
