@@ -475,3 +475,32 @@ func editorTarget() string {
 	}
 	return ""
 }
+
+// resolveComment removes a note the agent in Rex pane block reports it
+// addressed. Only a note already sent to that agent qualifies: the agent
+// acts on text that quotes repository code, so it mustn't be able to clear
+// notes still waiting for it or meant for another agent.
+func resolveComment(repo, id, block string) error {
+	if block == "" {
+		block = outsideRex
+	}
+	s, err := openComments(repo)
+	if err != nil {
+		return err
+	}
+	defer s.Close()
+	cs := s.Load()
+	for i, c := range cs {
+		if c.ID != id {
+			continue
+		}
+		if c.Pending() {
+			return fmt.Errorf("comment %q hasn't been sent to the agent yet", id)
+		}
+		if !c.For(block) {
+			return fmt.Errorf("comment %q is for another agent", id)
+		}
+		return s.Save(append(cs[:i:i], cs[i+1:]...))
+	}
+	return fmt.Errorf("no comment with id %q", id)
+}

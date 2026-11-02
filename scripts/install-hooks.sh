@@ -32,17 +32,19 @@ PI_DIR="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
 
 has() { command -v "$1" >/dev/null 2>&1 || [ -d "$2" ]; }
 
-# hooks_json FILE: add or remove the two command hooks in a Claude Code style
+# hooks_json FILE [allow]: add or remove the two command hooks in a Claude Code style
 # hooks file (Claude's settings.json and Codex's hooks.json share the format).
+# With allow (Claude), also allow `rexmod comments resolve`: the agent runs it
+# to clear a note it addressed, and auto mode blocks it otherwise.
 hooks_json() {
   file="$1"
   if [ "$MODE" = remove ] && [ ! -f "$file" ]; then return 0; fi
   mkdir -p "$(dirname "$file")"
   [ -f "$file" ] || echo '{}' > "$file"
   cp "$file" "$file.bak-rexmod"
-  /usr/bin/python3 - "$file" "$BIN" "$MODE" <<'EOF'
+  /usr/bin/python3 - "$file" "$BIN" "$MODE" "${2:-}" <<'EOF'
 import json, sys
-path, binary, mode = sys.argv[1], sys.argv[2], sys.argv[3]
+path, binary, mode, allow = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4] == "allow"
 raw = open(path).read()
 d = json.loads(raw or "{}")
 indent = 4 if raw.startswith('{\n    "') else 2
@@ -71,6 +73,20 @@ else:
             continue
         groups.append({"hooks": [{"type": "command", "command": f"{binary} hook {arg}", "timeout": 15}]})
         changed = True
+if allow:
+    rule = "Bash(rexmod comments resolve:*)"
+    perms = d.setdefault("permissions", {})
+    rules = perms.setdefault("allow", [])
+    if mode == "remove" and rule in rules:
+        rules.remove(rule)
+        changed = True
+    elif mode != "remove" and rule not in rules:
+        rules.append(rule)
+        changed = True
+    if not rules:
+        del perms["allow"]
+    if not perms:
+        del d["permissions"]
 open(path, "w").write(json.dumps(d, indent=indent, ensure_ascii=False) + "\n")
 print(("removed from" if mode == "remove" else "added to") if changed else "unchanged:", path)
 EOF
@@ -121,7 +137,7 @@ PY
 }
 
 found=0
-if has claude "$CLAUDE_DIR"; then found=1; hooks_json "$CLAUDE_DIR/settings.json"; fi
+if has claude "$CLAUDE_DIR"; then found=1; hooks_json "$CLAUDE_DIR/settings.json" allow; fi
 if has codex "$CODEX_DIR"; then
   found=1
   hooks_json "$CODEX_DIR/hooks.json"

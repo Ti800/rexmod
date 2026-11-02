@@ -206,3 +206,37 @@ func TestHeldCommentsWaitForSend(t *testing.T) {
 		t.Fatalf("send took %+v, %v; want the held note", got, err)
 	}
 }
+
+func TestResolveComment(t *testing.T) {
+	dir := t.TempDir()
+	if out, err := exec.Command("git", "init", "-q", dir).CombinedOutput(); err != nil {
+		t.Fatal(err, string(out))
+	}
+	st, err := openComments(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = st.Save([]Comment{
+		{ID: "sent", File: "a", Line: 1, SentAt: "x", TargetBlock: "block:A"},
+		{ID: "pending", File: "a", Line: 2, TargetBlock: "block:A"},
+		{ID: "other", File: "a", Line: 3, SentAt: "x", TargetBlock: "block:B"},
+	})
+	st.Close()
+	if err := resolveComment(dir, "pending", "block:A"); err == nil {
+		t.Error("resolved a note not sent yet")
+	}
+	if err := resolveComment(dir, "other", "block:A"); err == nil {
+		t.Error("resolved another agent's note")
+	}
+	if err := resolveComment(dir, "sent", ""); err == nil {
+		t.Error("an agent outside Rex resolved a Rex pane's note")
+	}
+	if err := resolveComment(dir, "sent", "block:A"); err != nil {
+		t.Error(err)
+	}
+	st, _ = openComments(dir)
+	defer st.Close()
+	if got := st.Load(); len(got) != 2 {
+		t.Errorf("want 2 notes left, got %d", len(got))
+	}
+}

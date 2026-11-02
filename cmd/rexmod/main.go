@@ -423,7 +423,14 @@ func cmdComments(args []string) error {
 		}
 		return fmt.Errorf("no comment with id %q", *id)
 
-	case "delete", "resolve": // resolve: the agent reports a note addressed
+	case "resolve":
+		r, err := repoFrom(*repo, *file)
+		if err != nil {
+			return err
+		}
+		return resolveComment(r, *id, os.Getenv("REX_BLOCK"))
+
+	case "delete":
 		r, err := repoFrom(*repo, *file)
 		if err != nil {
 			return err
