@@ -2,6 +2,13 @@
 
 All notable changes to rexmod. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- The Changes panel shows where your pending review comments are: each file in the tree shows how many it has, and a closed folder shows the total of the files inside it. The comment bubble in the header now opens a list of them instead of sending them right away. Click a comment to open the editor at its line; the Send button at the bottom sends them all to the agent.
+- `rexmod comments add --hold` adds a comment that doesn't go along with the agent's next message. It waits in the panel until you send it, so comments from an automated review don't reach the agent half-finished.
+
 ## [0.1.7] - 2026-11-02
 
 ### Fixed

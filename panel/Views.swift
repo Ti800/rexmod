@@ -437,6 +437,12 @@ struct RowView: View {
                 }
             }
             Spacer(minLength: 6)
+            // Pending review comments: always on a file, on a folder only
+            // while it's closed (an open one shows them on its files).
+            if let k = model.commentCounts[n.id], k > 0, !n.isDir || !isOpen {
+                CommentCount(count: k)
+                    .help("\(k) pending review comment\(k == 1 ? "" : "s")")
+            }
             if let c = n.change {
                 if hover && !(c.binary ?? false) && (c.add > 0 || c.del > 0) {
                     HStack(spacing: 4) {
@@ -584,6 +590,7 @@ struct PanelView: View {
     @ObservedObject var model: PanelModel
     var topInset: CGFloat
     var onHide: () -> Void
+    @State private var showComments = false
 
     var body: some View {
         if model.panelVisible { full } else { Color.clear }
@@ -610,7 +617,7 @@ struct PanelView: View {
                                      set: { model.tab = PanelTab(rawValue: $0) ?? .changes }))
             Spacer()
             if let n = model.state?.pendingComments, n > 0 {
-                Button { model.sendComments() } label: {
+                Button { showComments.toggle() } label: {
                     HStack(spacing: 3) {
                         Image(systemName: "text.bubble.fill").font(.system(size: 11))
                         Text("\(n)").font(.system(size: 11.5, weight: .semibold))
@@ -621,8 +628,11 @@ struct PanelView: View {
                     .background(Capsule().fill(Palette.accent.opacity(0.15)))
                 }
                 .buttonStyle(.plain)
-                .help("Send \(n) pending review comment\(n == 1 ? "" : "s") to \(model.agentName)")
-                .accessibilityLabel("Send \(n) pending review comment\(n == 1 ? "" : "s")")
+                .help("Show \(n) pending review comment\(n == 1 ? "" : "s")")
+                .accessibilityLabel("Show \(n) pending review comment\(n == 1 ? "" : "s")")
+                .popover(isPresented: $showComments, arrowEdge: .bottom) {
+                    CommentsList(model: model) { showComments = false }
+                }
                 .padding(.trailing, 4)
             }
             RexIconButton(symbol: "magnifyingglass", help: "Find File", shortcut: "⌘P") { model.openPicker() }
@@ -828,5 +838,97 @@ struct PanelView: View {
             EmptyState(symbol: "checkmark.seal", title: "Working tree is clean",
                        message: "No uncommitted changes on \(branch).", action: find)
         }
+    }
+}
+
+
+/// The number of pending comments on a tree row.
+struct CommentCount: View {
+    let count: Int
+    var body: some View {
+        HStack(spacing: 2) {
+            Image(systemName: "text.bubble.fill").font(.system(size: 9))
+            Text("\(count)").font(.system(size: 10.5, weight: .semibold))
+        }
+        .foregroundStyle(Palette.accent)
+    }
+}
+
+/// Pending review comments: click one to open the editor at it; send them
+/// all to the agent from the bottom.
+struct CommentsList: View {
+    @ObservedObject var model: PanelModel
+    let close: () -> Void
+
+    var body: some View {
+        let comments = (model.state?.comments ?? []).sorted {
+            ($0.file, $0.line) < ($1.file, $1.line)
+        }
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Pending review comments")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 12)
+                .padding(.top, 10)
+                .padding(.bottom, 6)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(comments) { c in
+                        CommentRow(comment: c) {
+                            model.open(c.file, line: c.line)
+                            close()
+                        }
+                    }
+                }
+                .padding(.horizontal, 6)
+            }
+            .frame(maxHeight: 360)
+            Divider().padding(.top, 6)
+            HStack {
+                Spacer()
+                Button("Send \(comments.count) to \(model.agentName)") {
+                    model.sendComments()
+                    close()
+                }
+                .keyboardShortcut(.defaultAction)
+            }
+            .padding(10)
+        }
+        .frame(width: 340)
+    }
+}
+
+struct CommentRow: View {
+    let comment: CommentDTO
+    let action: () -> Void
+    @State private var hover = false
+
+    var body: some View {
+        let c = comment
+        let range = c.endLine > c.line ? "\(c.line)-\(c.endLine)" : "\(c.line)"
+        let name = String(c.file.split(separator: "/").last ?? Substring(c.file))
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    Text(name).font(.system(size: 12, weight: .medium)).foregroundStyle(.primary)
+                    Text(":" + range).font(.system(size: 11, design: .monospaced)).foregroundStyle(.secondary)
+                    Spacer(minLength: 0)
+                }
+                .lineLimit(1)
+                Text(c.text.split(separator: "\n").first.map(String.init) ?? "")
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+            }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 5)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(hover ? 0.08 : 0)))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(c.file + ":" + range + "\n\n" + c.text)
+        .onHover { hover = $0 }
     }
 }

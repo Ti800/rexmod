@@ -174,11 +174,35 @@ func TestAddCommentKeepsContext(t *testing.T) {
 	if out, err := exec.Command("git", "-C", dir, "init", "-q").CombinedOutput(); err != nil {
 		t.Skipf("git init: %v %s", err, out)
 	}
-	c, err := addComment(dir, filepath.Join(dir, "a.go"), 4, 4, "x", "", "")
+	c, err := addComment(dir, filepath.Join(dir, "a.go"), 4, 4, "x", "", "", false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if c.Before != "a\nb\nc" || c.After != "e\nf\ng" {
 		t.Fatalf("before %q after %q", c.Before, c.After)
+	}
+}
+
+func TestHeldCommentsWaitForSend(t *testing.T) {
+	dir := t.TempDir()
+	if _, err := git(dir, "init", "-q"); err != nil {
+		t.Skip("git:", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "a.go"), []byte("a\nb\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := addComment(dir, "a.go", 1, 1, "held", "", "", true); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := addComment(dir, "a.go", 2, 2, "normal", "", "", false); err != nil {
+		t.Fatal(err)
+	}
+	got, err := takePending(dir, "", false) // the agent's next message
+	if err != nil || len(got) != 1 || got[0].Text != "normal" {
+		t.Fatalf("hook took %+v, %v; want only the normal note", got, err)
+	}
+	got, err = takePending(dir, "", true) // sent from the panel
+	if err != nil || len(got) != 1 || got[0].Text != "held" {
+		t.Fatalf("send took %+v, %v; want the held note", got, err)
 	}
 }

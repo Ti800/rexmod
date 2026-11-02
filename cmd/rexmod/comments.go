@@ -26,6 +26,9 @@ type Comment struct {
 	// TargetBlock is the Rex pane of the agent the note is for: the agent
 	// in the editor's tab. Empty when the note was made outside Rex.
 	TargetBlock string `json:"target_block,omitempty"`
+	// Hold keeps the note out of the agent's next message: it waits in the
+	// panel until the user sends it (comments send), as automated reviews do.
+	Hold bool `json:"hold,omitempty"`
 	// Drift is set when the note is sent: "moved" when the reviewed code is
 	// now at other lines, "nearby" when the reviewed lines are intact but the
 	// code right around them changed, "changed" when it's no longer in the file, "deleted"
@@ -166,7 +169,7 @@ func readSnippet(repo, rel string, from, to int) string {
 // changes right next to it.
 const contextLines = 3
 
-func addComment(repo, file string, line, end int, text, snippet, target string) (*Comment, error) {
+func addComment(repo, file string, line, end int, text, snippet, target string, hold bool) (*Comment, error) {
 	text = strings.TrimSpace(text)
 	if text == "" {
 		return nil, fmt.Errorf("empty comment")
@@ -190,6 +193,7 @@ func addComment(repo, file string, line, end int, text, snippet, target string) 
 		Snippet: snippet, Before: before, After: after,
 		CreatedAt:   time.Now().Format(time.RFC3339),
 		TargetBlock: target,
+		Hold:        hold,
 	}
 	s, err := openComments(repo)
 	if err != nil {
@@ -417,8 +421,9 @@ func abs(n int) int {
 }
 
 // takePending returns the pending comments for the agent in Rex pane block
-// (all of them when block is empty) and marks them sent.
-func takePending(repo, block string) ([]Comment, error) {
+// (all of them when block is empty) and marks them sent. Held notes go only
+// when the user sends them (manual), not with the agent's next message.
+func takePending(repo, block string, manual bool) ([]Comment, error) {
 	s, err := openComments(repo)
 	if err != nil {
 		return nil, err
@@ -428,7 +433,7 @@ func takePending(repo, block string) ([]Comment, error) {
 	var pending []Comment
 	now := time.Now().Format(time.RFC3339)
 	for i := range cs {
-		if cs[i].Pending() && cs[i].For(block) {
+		if cs[i].Pending() && cs[i].For(block) && (manual || !cs[i].Hold) {
 			checkDrift(repo, &cs[i])
 			pending = append(pending, cs[i])
 			cs[i].SentAt = now

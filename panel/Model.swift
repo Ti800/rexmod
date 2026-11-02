@@ -48,10 +48,19 @@ struct ChangesDTO: Decodable, Equatable {
     var del: Int
 }
 
+struct CommentDTO: Decodable, Equatable, Identifiable {
+    var id: String
+    var file: String
+    var line: Int
+    var endLine: Int
+    var text: String
+}
+
 struct StateDTO: Decodable, Equatable {
     var target: TargetDTO?
     var changes: [String: ChangesDTO]?
     var pendingComments: Int
+    var comments: [CommentDTO]? = nil
     var error: String?
 }
 
@@ -362,6 +371,20 @@ final class PanelModel: ObservableObject {
             if status != 0 { self?.show(err.replacingOccurrences(of: "rexmod: ", with: "")) }
             self?.scheduleRefresh(after: 0.05, reason: "follow")
         }
+    }
+
+    /// Pending comments per file and, summed, per folder above it.
+    var commentCounts: [String: Int] {
+        var m: [String: Int] = [:]
+        for c in state?.comments ?? [] {
+            m[c.file, default: 0] += 1
+            var p = c.file
+            while let slash = p.lastIndex(of: "/") {
+                p = String(p[..<slash])
+                m[p, default: 0] += 1
+            }
+        }
+        return m
     }
 
     /// The followed agent's name, for messages.

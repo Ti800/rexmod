@@ -24,7 +24,7 @@ const usage = `rexmod: Rex Changes panel, editor and review helpers
   rexmod open     [--session S] [--window W] FILE[:LINE]  open in the editor pane
   rexmod pick     [--session S] [--window W]           fuzzy file picker in a floating layer
   rexmod preview  FILE [LINE]                          numbered preview (used by the picker)
-  rexmod comments add --file F --line L [--end-line E] --text T
+  rexmod comments add --file F --line L [--end-line E] [--hold] --text T
   rexmod comments list [--file F] [--pending] [--json]
   rexmod comments edit --id ID --text T              change a comment (it becomes pending again)
   rexmod comments delete --id ID
@@ -142,8 +142,19 @@ type State struct {
 	Target   *Target             `json:"target"`
 	Changes  map[string]*Changes `json:"changes,omitempty"`
 	Comments int                 `json:"pending_comments"`
-	Error    string              `json:"error,omitempty"`
-	Time     string              `json:"time"`
+	// Pending lists those comments so the panel can show where they are.
+	Pending []PendingComment `json:"comments,omitempty"`
+	Error   string           `json:"error,omitempty"`
+	Time    string           `json:"time"`
+}
+
+// PendingComment is what the panel needs of a pending comment.
+type PendingComment struct {
+	ID      string `json:"id"`
+	File    string `json:"file"`
+	Line    int    `json:"line"`
+	EndLine int    `json:"end_line"`
+	Text    string `json:"text"`
 }
 
 func cmdState(args []string) error {
@@ -189,6 +200,7 @@ func cmdState(args []string) error {
 		for _, c := range cs.Load() {
 			if c.Pending() && c.For(st.Target.AgentBlockID) {
 				st.Comments++
+				st.Pending = append(st.Pending, PendingComment{c.ID, c.File, c.Line, c.EndLine, c.Text})
 			}
 		}
 		cs.Close()
@@ -311,6 +323,7 @@ func cmdComments(args []string) error {
 	text := fs.String("text", "", "comment text (or - for stdin)")
 	snippet := fs.String("snippet", "", "code the comment refers to (default: read from the file)")
 	targetBlock := fs.String("target-block", "", "Rex pane of the agent the note is for (default: the agent in the editor's tab)")
+	hold := fs.Bool("hold", false, "keep the note out of the agent's next message; it goes only when sent from the panel")
 	id := fs.String("id", "", "comment id")
 	pendingOnly := fs.Bool("pending", false, "only comments not yet sent to the agent")
 	sentOnly := fs.Bool("sent", false, "only comments already sent")
@@ -337,7 +350,7 @@ func cmdComments(args []string) error {
 		if target == "" {
 			target = editorTarget()
 		}
-		c, err := addComment(r, *file, *line, *end, *text, *snippet, target)
+		c, err := addComment(r, *file, *line, *end, *text, *snippet, target, *hold)
 		if err != nil {
 			return err
 		}
@@ -375,6 +388,8 @@ func cmdComments(args []string) error {
 			state := "pending"
 			if !c.Pending() {
 				state = "sent"
+			} else if c.Hold {
+				state = "held"
 			}
 			fmt.Printf("%s  %s:%s  [%s]  %s\n", c.ID, c.File, c.Range(), state, c.Text)
 		}
@@ -485,7 +500,7 @@ func sendComments(session, window, repo, file string) error {
 	if agent == "" {
 		return fmt.Errorf("no agent pane (Claude Code, Codex, OpenCode or Pi) in this window")
 	}
-	pending, err := takePending(r, agent)
+	pending, err := takePending(r, agent, true)
 	if err != nil {
 		return err
 	}
@@ -609,7 +624,7 @@ func cmdHook(args []string) error {
 		if block == "" {
 			block = outsideRex
 		}
-		pending, err := takePending(repo, block)
+		pending, err := takePending(repo, block, false)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "rexmod: comments:", err)
 		}
