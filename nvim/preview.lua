@@ -16,7 +16,7 @@ for _, dir in ipairs({
     vim.opt.rtp:append(dir)
   end
 end
-vim.o.background = "dark"
+vim.o.background = vim.env.REXMOD_BACKGROUND or "dark"
 vim.o.termguicolors = true
 pcall(vim.cmd.colorscheme, "rex")
 
