@@ -2,11 +2,21 @@ import AppKit
 import SwiftUI
 
 private enum Palette {
-    static let added = Color(red: 0.25, green: 0.85, blue: 0.55)
-    static let modified = Color(red: 1.0, green: 0.68, blue: 0.10)
-    static let deleted = Color(red: 1.0, green: 0.30, blue: 0.40)
-    static let renamed = Color(red: 0.20, green: 0.85, blue: 1.0)
+    // The bright colors are for dark themes; on a light theme they wash out.
+    static let added = adaptive(dark: (0.25, 0.85, 0.55), light: (0.10, 0.50, 0.25))
+    static let modified = adaptive(dark: (1.0, 0.68, 0.10), light: (0.65, 0.42, 0.0))
+    static let deleted = adaptive(dark: (1.0, 0.30, 0.40), light: (0.78, 0.15, 0.22))
+    static let renamed = adaptive(dark: (0.20, 0.85, 1.0), light: (0.0, 0.45, 0.65))
     static let accent = Color(red: 0.73, green: 0.0, blue: 1.0)
+
+    private typealias RGB = (CGFloat, CGFloat, CGFloat)
+
+    private static func adaptive(dark: RGB, light: RGB) -> Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            let c = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light
+            return NSColor(srgbRed: c.0, green: c.1, blue: c.2, alpha: 1)
+        })
+    }
 
     static func status(_ s: String) -> Color {
         switch s {
@@ -44,30 +54,27 @@ private func fileIcon(_ name: String) -> (String, Color) {
 
 // MARK: - Building blocks
 
-private func hexColor(_ v: UInt32, alpha: CGFloat = 1) -> NSColor {
-    NSColor(srgbRed: CGFloat((v >> 16) & 0xff) / 255, green: CGFloat((v >> 8) & 0xff) / 255,
-            blue: CGFloat(v & 0xff) / 255, alpha: alpha)
+/// Rex's icon button looks, measured on screen and matched to its theme tokens.
+enum RexIconStyle {
+    /// Sidebar header icons (ChromeIconButton): content at 0.7, content on a
+    /// circle of content at 0.075 when hovered.
+    case sidebar
+    /// Pane title actions (split, float, zoom, close): content at 0.35, content
+    /// at 0.5 on a controlHover circle when hovered.
+    case paneAction
+
+    func colors(_ theme: RexThemeColors) -> (rest: NSColor, hover: NSColor, circle: NSColor) {
+        switch self {
+        case .sidebar:
+            return (theme.content.withAlphaComponent(0.7), theme.content, theme.content.withAlphaComponent(0.075))
+        case .paneAction:
+            return (theme.content.withAlphaComponent(0.35), theme.content.withAlphaComponent(0.5), theme.controlHover)
+        }
+    }
 }
 
-/// Rex's icon button looks, measured on screen.
-struct RexIconStyle {
-    var rest: NSColor
-    var restInactive: NSColor
-    var hover: NSColor
-    var circle: NSColor
-
-    /// Sidebar header icons (ChromeIconButton): white at 0.7, white on a
-    /// #313132 circle (over #161619) when hovered.
-    static let sidebar = RexIconStyle(rest: NSColor.white.withAlphaComponent(0.7), restInactive: NSColor.white.withAlphaComponent(0.7),
-                                      hover: .white, circle: NSColor.white.withAlphaComponent(0.084))
-    /// Pane title actions (split, float, zoom, close): #7d7d7e at rest
-    /// (#5d5d5d in an inactive window), #a1a1a3 on a #2d2d2f circle hovered.
-    static let paneAction = RexIconStyle(rest: hexColor(0x7d7d7e), restInactive: hexColor(0x5d5d5d),
-                                         hover: hexColor(0xa1a1a3), circle: hexColor(0x2d2d2f))
-}
-
-/// Rex's shortcut tip: a dark rounded box under the button with the title
-/// and a key cap (e.g. "Split Right  ⌘D"), measured from Rex.
+/// Rex's shortcut tip: a raised rounded box under the button with the title
+/// and a key cap (e.g. "Split Right  ⌘D"), in the theme's colors, measured from Rex.
 final class RexTip {
     static let shared = RexTip()
     private var panel: NSPanel?
@@ -76,9 +83,11 @@ final class RexTip {
     func show(title: String, shortcut: String?, below anchor: NSView) {
         hide()
         guard let window = anchor.window else { return }
+        let theme = RexTheme.colors(for: anchor)
+        let border = theme.content.withAlphaComponent(0.16).cgColor
         let text = NSTextField(labelWithString: title)
         text.font = .systemFont(ofSize: 12.5)
-        text.textColor = hexColor(0x939393)
+        text.textColor = theme.contentSecondary
         text.sizeToFit()
         var width = 12 + text.frame.width + 12
         let height: CGFloat = 28
@@ -86,14 +95,14 @@ final class RexTip {
         if let shortcut = shortcut {
             let k = NSTextField(labelWithString: shortcut)
             k.font = .systemFont(ofSize: 11.5)
-            k.textColor = hexColor(0x939393)
+            k.textColor = theme.contentSecondary
             k.sizeToFit()
             let box = NSView(frame: NSRect(x: 0, y: 0, width: k.frame.width + 10, height: 18))
             box.wantsLayer = true
             box.layer?.cornerRadius = 5
             box.layer?.cornerCurve = .continuous
             box.layer?.borderWidth = 1
-            box.layer?.borderColor = hexColor(0x4f4f4f).cgColor
+            box.layer?.borderColor = border
             k.frame.origin = NSPoint(x: 5, y: (18 - k.frame.height) / 2)
             box.addSubview(k)
             cap = box
@@ -101,11 +110,11 @@ final class RexTip {
         }
         let content = NSView(frame: NSRect(x: 0, y: 0, width: width, height: height))
         content.wantsLayer = true
-        content.layer?.backgroundColor = hexColor(0x212121).cgColor
+        content.layer?.backgroundColor = theme.surfaceRaised.cgColor
         content.layer?.cornerRadius = 10
         content.layer?.cornerCurve = .continuous
         content.layer?.borderWidth = 0.5
-        content.layer?.borderColor = hexColor(0x4f4f50).cgColor
+        content.layer?.borderColor = border
         text.frame.origin = NSPoint(x: 12, y: (height - text.frame.height) / 2)
         content.addSubview(text)
         if let cap = cap {
@@ -152,7 +161,7 @@ final class RexStyleIconButton: NSButton {
     private var tracking: NSTrackingArea?
     private var tipTimer: Timer?
     private var hovered = false { didSet { updateLook() } }
-    private var keyObservers: [NSObjectProtocol] = []
+    private var themeObserver: NSObjectProtocol?
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -181,14 +190,18 @@ final class RexStyleIconButton: NSButton {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        keyObservers.forEach(NotificationCenter.default.removeObserver)
-        keyObservers = []
-        guard let w = window else { return }
-        for name in [NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification] {
-            keyObservers.append(NotificationCenter.default.addObserver(forName: name, object: w, queue: .main) { [weak self] _ in
-                self?.updateLook()
-            })
+        if let o = themeObserver { NotificationCenter.default.removeObserver(o) }
+        themeObserver = nil
+        guard window != nil else { return }
+        // A theme change within one appearance only shows in Rex's settings.
+        themeObserver = NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.updateLook()
         }
+        updateLook()
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
         updateLook()
     }
 
@@ -224,9 +237,9 @@ final class RexStyleIconButton: NSButton {
     }
 
     private func updateLook() {
-        let active = window?.isKeyWindow ?? true
-        contentTintColor = hovered ? style.hover : (active ? style.rest : style.restInactive)
-        circle.backgroundColor = hovered ? style.circle.cgColor : nil
+        let look = style.colors(RexTheme.colors(for: self))
+        contentTintColor = hovered ? look.hover : look.rest
+        circle.backgroundColor = hovered ? look.circle.cgColor : nil
     }
 }
 
