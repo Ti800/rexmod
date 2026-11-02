@@ -54,6 +54,17 @@ func (c Comment) For(block string) bool {
 	return c.TargetBlock == "" || block == "" || c.TargetBlock == block
 }
 
+// Owned reports whether the note belongs to the agent in Rex pane block,
+// counting a note whose pane has closed as everyone's: it stays visible and
+// goes to whichever agent of the repo takes it next. alive is the set of
+// open Rex panes (nil when unknown: then no note counts as orphaned).
+func (c Comment) Owned(block string, alive map[string]bool) bool {
+	if c.TargetBlock != "" && alive != nil && !alive[c.TargetBlock] && block != outsideRex {
+		return true
+	}
+	return c.For(block)
+}
+
 func (c Comment) Pending() bool { return c.SentAt == "" }
 
 func (c Comment) Range() string {
@@ -424,7 +435,9 @@ func abs(n int) int {
 
 // takePending returns the pending comments for the agent in Rex pane block
 // (all of them when block is empty) and marks them sent. Held notes go only
-// when the user sends them (manual), not with the agent's next message.
+// when the user sends them (manual), not with the agent's next message; so
+// do notes whose pane closed, which any agent of the repo could otherwise
+// pick up with its next message.
 func takePending(repo, block string, manual bool) ([]Comment, error) {
 	s, err := openComments(repo)
 	if err != nil {
@@ -432,10 +445,11 @@ func takePending(repo, block string, manual bool) ([]Comment, error) {
 	}
 	defer s.Close()
 	cs := s.Load()
+	alive := aliveBlocks()
 	var pending []Comment
 	now := time.Now().Format(time.RFC3339)
 	for i := range cs {
-		if cs[i].Pending() && cs[i].For(block) && (manual || !cs[i].Hold) {
+		if cs[i].Pending() && cs[i].Owned(block, alive) && (manual || (!cs[i].Hold && cs[i].For(block))) {
 			checkDrift(repo, &cs[i])
 			pending = append(pending, cs[i])
 			cs[i].SentAt = now
@@ -468,6 +482,15 @@ func editorTarget() string {
 		for _, blk := range w.blocks() {
 			if blk.BlockID == b || strings.HasSuffix(blk.BlockID, b) {
 				if t, err := resolveTarget(s, w.WindowID); err == nil {
+					// An agent adding notes (a review it was asked for)
+					// leaves them for another agent of the tab, not itself.
+					if t.AgentBlockID == blk.BlockID {
+						for _, a := range t.Agents {
+							if a.BlockID != blk.BlockID {
+								return a.BlockID
+							}
+						}
+					}
 					return t.AgentBlockID
 				}
 			}
@@ -497,7 +520,7 @@ func resolveComment(repo, id, block string) error {
 		if c.Pending() {
 			return fmt.Errorf("comment %q hasn't been sent to the agent yet", id)
 		}
-		if !c.For(block) {
+		if !c.Owned(block, aliveBlocks()) {
 			return fmt.Errorf("comment %q is for another agent", id)
 		}
 		return s.Save(append(cs[:i:i], cs[i+1:]...))

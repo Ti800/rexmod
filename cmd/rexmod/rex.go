@@ -432,3 +432,17 @@ func resolveTarget(session, window string) (*Target, error) {
 	}
 	return t, nil
 }
+
+// aliveBlocks returns the IDs of every open Rex pane, or nil when Rex can't
+// be asked. A variable so tests can stand in for Rex.
+var aliveBlocks = func() map[string]bool {
+	out, err := exec.Command(rexBin(), "block", "ls", "-A", "-q", "--short=false").Output()
+	if err != nil {
+		return nil
+	}
+	alive := map[string]bool{}
+	for _, l := range strings.Fields(string(out)) {
+		alive[l] = true
+	}
+	return alive
+}

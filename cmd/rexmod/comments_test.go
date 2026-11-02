@@ -208,6 +208,8 @@ func TestHeldCommentsWaitForSend(t *testing.T) {
 }
 
 func TestResolveComment(t *testing.T) {
+	defer func(f func() map[string]bool) { aliveBlocks = f }(aliveBlocks)
+	aliveBlocks = func() map[string]bool { return map[string]bool{"block:A": true, "block:B": true} }
 	dir := t.TempDir()
 	if out, err := exec.Command("git", "init", "-q", dir).CombinedOutput(); err != nil {
 		t.Fatal(err, string(out))
@@ -238,5 +240,40 @@ func TestResolveComment(t *testing.T) {
 	defer st.Close()
 	if got := st.Load(); len(got) != 2 {
 		t.Errorf("want 2 notes left, got %d", len(got))
+	}
+}
+
+func TestOwnedOrphan(t *testing.T) {
+	alive := map[string]bool{"block:A": true}
+	c := Comment{TargetBlock: "block:gone"}
+	if !c.Owned("block:A", alive) {
+		t.Error("a note whose pane closed should go to the current agent")
+	}
+	if c.Owned(outsideRex, alive) {
+		t.Error("an agent outside Rex took a Rex note")
+	}
+	if c.Owned("block:A", nil) {
+		t.Error("with Rex unknown, no note counts as orphaned")
+	}
+	if (Comment{TargetBlock: "block:B"}).Owned("block:A", map[string]bool{"block:A": true, "block:B": true}) {
+		t.Error("took a note of an open pane")
+	}
+}
+
+func TestTakePendingOrphan(t *testing.T) {
+	defer func(f func() map[string]bool) { aliveBlocks = f }(aliveBlocks)
+	aliveBlocks = func() map[string]bool { return map[string]bool{"block:A": true} }
+	dir := t.TempDir()
+	if out, err := exec.Command("git", "init", "-q", dir).CombinedOutput(); err != nil {
+		t.Fatal(err, string(out))
+	}
+	st, _ := openComments(dir)
+	_ = st.Save([]Comment{{ID: "o", File: "a", Line: 1, TargetBlock: "block:gone"}})
+	st.Close()
+	if got, _ := takePending(dir, "block:A", false); len(got) != 0 {
+		t.Error("a closed pane's note went with an agent's next message")
+	}
+	if got, _ := takePending(dir, "block:A", true); len(got) != 1 {
+		t.Error("sending from the panel should take a closed pane's note")
 	}
 }

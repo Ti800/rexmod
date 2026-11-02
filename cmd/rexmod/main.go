@@ -198,8 +198,9 @@ func cmdState(args []string) error {
 		st.Changes[m] = c
 	}
 	if cs, err := openComments(st.Target.Repo); err == nil {
+		alive := aliveBlocks()
 		for _, c := range cs.Load() {
-			if c.Pending() && c.For(st.Target.AgentBlockID) {
+			if c.Pending() && c.Owned(st.Target.AgentBlockID, alive) {
 				st.Comments++
 				st.Pending = append(st.Pending, PendingComment{c.ID, c.File, c.Line, c.EndLine, c.Text})
 			}
