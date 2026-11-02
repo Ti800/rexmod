@@ -10,7 +10,7 @@ xcrun clang -c -fobjc-arc -target $TARGET -O2 panel/Boot.m -o build/Boot.o
 xcrun swiftc -emit-library -module-name RexModPanel -target $TARGET -O -swift-version 5 -import-objc-header panel/Bridge.h \
   -framework AppKit -framework SwiftUI -framework CoreServices \
   -Xlinker -install_name -Xlinker "$DEST" \
-  panel/Support.swift panel/FlowIcons.swift panel/Model.swift panel/Views.swift panel/Panel.swift build/Boot.o -o "$OUT"
+  panel/Support.swift panel/Theme.swift panel/FlowIcons.swift panel/Model.swift panel/Views.swift panel/Panel.swift build/Boot.o -o "$OUT"
 codesign -f -s - "$OUT" >/dev/null 2>&1
 # Replace atomically so a running Rex keeps its mapped copy.
 cp "$OUT" "$DEST.tmp" && mv -f "$DEST.tmp" "$DEST"

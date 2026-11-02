@@ -12,7 +12,7 @@ xcrun clang -c -fobjc-arc -target $TARGET -O2 panel/Boot.m -o build/Boot.o
 xcrun swiftc -emit-library -module-name RexModPanel -target $TARGET -O -swift-version 5 \
   -import-objc-header panel/Bridge.h -framework AppKit -framework SwiftUI -framework CoreServices \
   -Xlinker -install_name -Xlinker @rpath/RexModPanel.dylib \
-  panel/Support.swift panel/FlowIcons.swift panel/Model.swift panel/Views.swift panel/Panel.swift build/Boot.o \
+  panel/Support.swift panel/Theme.swift panel/FlowIcons.swift panel/Model.swift panel/Views.swift panel/Panel.swift build/Boot.o \
   -o dist/RexModPanel.dylib
 for f in dist/rexmod dist/insertdylib dist/RexModPanel.dylib; do codesign -f -s - "$f" >/dev/null 2>&1; done
 ls -la dist
