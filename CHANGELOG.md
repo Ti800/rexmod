@@ -2,6 +2,13 @@
 
 All notable changes to rexmod. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.11] - 2026-11-02
+
+### Fixed
+
+- Review comments no longer disappear from the Changes panel when the agent pane they were for closes. They show for the agent the panel follows and go when you send them from the panel; they never ride along with an agent's next message.
+- Comments an agent adds (a review you asked it for) are for another agent in the tab, not for the agent that wrote them, so they reach the agent that asked for the review.
+
 ## [0.1.10] - 2026-11-02
 
 ### Fixed
